@@ -1,13 +1,14 @@
 [tool.poetry]
 name = "minlog"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["redthing1 <redthing1@alt.icu>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.7"
 rich = "^13.4.1"
+colorama = "^0.4.6"
 
 
 [build-system]
