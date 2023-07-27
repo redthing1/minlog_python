@@ -31,15 +31,22 @@ class Verbosity(Enum):
 
 
 class Logger(object):
-    def __init__(
-        self, verbosity: Verbosity = Verbosity.INFO, backend: Backend = Backend.RICH
-    ):
+    def __init__(self, verbosity: Verbosity = Verbosity.INFO):
         # maximum verbosity of messages to print
         self.verbosity = verbosity
 
-        self.backend = backend
+        # default to rich
+        self.backend = Backend.RICH
+        # but if compiled, default to colorama
+        if IS_COMPILED:
+            self.backend = Backend.COLORAMA
 
-        if self.backend == Backend.COLORAMA:
+        if self.backend == Backend.RICH:
+            from rich.console import Console
+
+            self.rich_console = Console()
+
+        elif self.backend == Backend.COLORAMA:
             # initialize colorama
             colorama.init()
 
@@ -63,19 +70,21 @@ class Logger(object):
             return
 
         # then print the message
+        meta_str = f"{self.short_verbosity(message_verbosity)}"
+        message_str = message
 
         if self.backend == Backend.RICH:
-            mprint(message)
+            # mprint(message)
+            meta_style_rich = self.get_style_rich(message_verbosity)
+            self.rich_console.print(f"\[{meta_str}]", style=meta_style_rich, end=" ")
+            self.rich_console.print(message_str)
         elif self.backend == Backend.COLORAMA:
-            meta_str = f"[{self.short_verbosity(message_verbosity)}]"
-            message_str = message
-
-            meta_bg = self.get_bg_color_colorama(message_verbosity)
+            meta_bg = Back.BLACK
             meta_fg = self.get_fg_color_colorama(message_verbosity)
             message_bg = Back.RESET
             message_fg = Fore.RESET
 
-            meta_frm = f"{meta_bg}{meta_fg}{meta_str}{Style.RESET_ALL}"
+            meta_frm = f"{meta_bg}{meta_fg}[{meta_str}]{Style.RESET_ALL}"
             message_frm = f"{message_bg}{message_fg}{message_str}{Style.RESET_ALL}"
 
             print(f"{meta_frm} {message_frm}")
@@ -117,9 +126,6 @@ class Logger(object):
     def be_verbose(self):
         self.verbosity = Verbosity.TRACE
 
-    def get_bg_color_colorama(self, message_verbosity: Verbosity):
-        return Back.BLACK
-
     def get_fg_color_colorama(self, message_verbosity: Verbosity):
         if message_verbosity == Verbosity.DEBUG:
             return Fore.LIGHTBLACK_EX
@@ -133,6 +139,20 @@ class Logger(object):
             return Fore.RED
         elif message_verbosity == Verbosity.CRITICAL:
             return Fore.RED
+
+    def get_style_rich(self, message_verbosity: Verbosity):
+        if message_verbosity == Verbosity.DEBUG:
+            return "bright_black on black"
+        elif message_verbosity == Verbosity.TRACE:
+            return "bright_black on black"
+        elif message_verbosity == Verbosity.INFO:
+            return "green on black"
+        elif message_verbosity == Verbosity.WARN:
+            return "yellow on black"
+        elif message_verbosity == Verbosity.ERROR:
+            return "red on black"
+        elif message_verbosity == Verbosity.CRITICAL:
+            return "red on black"
 
 
 logger = Logger()
