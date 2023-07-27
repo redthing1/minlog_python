@@ -76,8 +76,9 @@ class Logger(object):
         if self.backend == Backend.RICH:
             # mprint(message)
             meta_style_rich = self.get_style_rich(message_verbosity)
-            self.rich_console.print(f"\[{meta_str}]", style=meta_style_rich, end=" ")
-            self.rich_console.print(message_str)
+            self.rich_console.print(f"\[{meta_str}]", style=meta_style_rich, end="")
+            message_str_escaped = message_str.replace("[", "\[")
+            self.rich_console.print(f" {message_str_escaped}")
         elif self.backend == Backend.COLORAMA:
             meta_bg = Back.BLACK
             meta_fg = self.get_fg_color_colorama(message_verbosity)
