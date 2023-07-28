@@ -127,6 +127,23 @@ class Logger(object):
     def be_verbose(self):
         self.verbosity = Verbosity.TRACE
 
+    def be_debug(self):
+        self.verbosity = Verbosity.DEBUG
+
+    def short_verbosity(self, message_verbosity: Verbosity):
+        if message_verbosity == Verbosity.DEBUG:
+            return "dbg"
+        elif message_verbosity == Verbosity.TRACE:
+            return "trc"
+        elif message_verbosity == Verbosity.INFO:
+            return "inf"
+        elif message_verbosity == Verbosity.WARN:
+            return "wrn"
+        elif message_verbosity == Verbosity.ERROR:
+            return "err"
+        elif message_verbosity == Verbosity.CRITICAL:
+            return "crt"
+
     def get_fg_color_colorama(self, message_verbosity: Verbosity):
         if message_verbosity == Verbosity.DEBUG:
             return Fore.LIGHTBLACK_EX
