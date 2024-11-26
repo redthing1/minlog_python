@@ -1,4 +1,4 @@
-from . import logger, Verbosity
+from . import Verbosity, Logger, logged
 from typing import Callable
 
 """
@@ -8,7 +8,10 @@ run: poetry run python -m minlog._test
 
 
 def run_tests() -> None:
-    """execute test suite with elegant formatting"""
+    """execute test suite with neat formatting"""
+
+    logger = Logger()
+
     logger.be_debug()  # ensure full logging visibility
 
     # core logging functionality
@@ -53,6 +56,37 @@ def run_tests() -> None:
     logger.be_quiet()
     logger.force_log("→ forced message in quiet mode")
     logger.log_only_when_quieter_than("→ conditional message", Verbosity.DEBUG)
+
+    print("\n■ new verbosity helpers")
+    print("→ check verbosity level")
+    if logger.is_verbosity_above(Verbosity.ERROR):
+        logger.error("• this should appear")
+    else:
+        logger.error("• this should not appear")
+
+    print("→ temporary verbosity change")
+    with logger.verbosity_at(Verbosity.DEBUG):
+        logger.debug("• this debug message should appear")
+        logger.trace("• this trace message should appear")
+
+    # decorator usage
+    print("\n■ logging decorator")
+
+    @logged
+    class MyClass:
+        def do_something(self):
+            self.logger.info("→ doing something in MyClass")
+
+    @logged("custom_source")
+    class MyOtherClass:
+        def do_something(self):
+            self.logger.info("→ doing something in MyOtherClass with custom source")
+
+    my_instance = MyClass()
+    my_instance.do_something()
+
+    my_other_instance = MyOtherClass()
+    my_other_instance.do_something()
 
     print("\n✓ all tests completed")
 

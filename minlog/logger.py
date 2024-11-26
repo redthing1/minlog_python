@@ -1,6 +1,20 @@
+import re
+from contextlib import contextmanager
+from functools import wraps
+from typing import Optional, Type, TypeVar, Callable, Any, Generator, Union
+
 from enum import Enum
 from rich.console import Console
 from typing import Optional
+
+
+def to_snake_case(name: str) -> str:
+    """convert camelcase/pascalcase to snake_case"""
+    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
+
+
+T = TypeVar("T")
 
 
 class Verbosity(Enum):
@@ -96,6 +110,14 @@ class Logger:
         """log critical message"""
         self.log(message, Verbosity.CRITICAL)
 
+    # alias methods for convenience
+    dbg = debug
+    trc = trace
+    inf = info
+    wrn = warn
+    err = error
+    cri = crit
+
     def force_log(self, message: str) -> None:
         """force log a message at critical level"""
         self.crit(message)
@@ -127,6 +149,50 @@ class Logger:
         """log message only if current verbosity is lower than specified level"""
         if self.verbosity.value <= compare_verbosity.value:
             print(message)  # using standard print for this specific case
+
+    @contextmanager
+    def verbosity_at(self, level: Verbosity) -> Generator[None, None, None]:
+        """temporarily change verbosity level"""
+        original_level = self.verbosity
+        self.verbosity = level
+        try:
+            yield
+        finally:
+            self.verbosity = original_level
+
+    def is_verbosity_above(self, level: Verbosity) -> bool:
+        """check if current verbosity is above given level"""
+        return self.verbosity.value >= level.value
+
+
+def logged(
+    source_or_class: Union[str, Type[T]]
+) -> Union[Type[T], Callable[[Type[T]], Type[T]]]:
+    """class decorator to add logging capability.
+    can be used as @logged or @logged("custom_source")"""
+
+    def decorator(cls: Type[T]) -> Type[T]:
+        original_init = cls.__init__
+
+        @wraps(original_init)
+        def new_init(self: Any, *args: Any, **kwargs: Any) -> None:
+            # create logger before calling original __init__
+            self.logger = logger.logger_for(
+                source
+                if isinstance(source_or_class, str)
+                else to_snake_case(cls.__name__)
+            )
+            original_init(self, *args, **kwargs)
+
+        cls.__init__ = new_init
+        return cls
+
+    # handle both @logged and @logged("source") cases
+    if isinstance(source_or_class, str):
+        source = source_or_class
+        return decorator
+
+    return decorator(source_or_class)
 
 
 # create default logger instance
