@@ -65,9 +65,15 @@ def run_tests() -> None:
         logger.error("• this should not appear")
 
     print("→ temporary verbosity change")
-    with logger.verbosity_at(Verbosity.DEBUG):
+    with logger.verbosity(Verbosity.DEBUG):
         logger.debug("• this debug message should appear")
         logger.trace("• this trace message should appear")
+
+    # subsource context manager
+    print("\n■ subsource context manager")
+    with logger.subsource("soyjax"):
+        logger.info("→ info message with subsource")
+        logger.debug("→ debug message with subsource")
 
     # decorator usage
     print("\n■ logging decorator")

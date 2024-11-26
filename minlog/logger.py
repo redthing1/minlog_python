@@ -50,40 +50,44 @@ class Logger:
     }
 
     def __init__(
-        self, verbosity: Verbosity = Verbosity.INFO, log_source: Optional[str] = None
+        self, verbosity: Verbosity = Verbosity.INFO, source: Optional[str] = None
     ):
         """initialize logger with given verbosity and optional source tag"""
-        self.verbosity = verbosity
-        self.log_source = log_source
-        self.console = Console()
+        self._level = verbosity
+        self._source = source
+        self._subsource = None
+        self._console = Console()
 
-    def logger_for(self, log_source: str) -> "Logger":
+    def logger_for(self, source: str) -> "Logger":
         """create a new logger instance with the same verbosity but different source"""
-        return Logger(self.verbosity, log_source=log_source)
+        return Logger(self._level, source=source)
 
     def _format_message(self, message: str, level: Verbosity) -> tuple[str, str, str]:
         """format the message components with proper escaping"""
         # escape brackets to prevent rich interpretation
         meta = f"[{self.VERBOSITY_SHORTCUTS[level]}]".replace("[", "\\[")
-        source = f"[{self.log_source}]".replace("[", "\\[") if self.log_source else ""
+        source = f"[{self._source}]" if self._source else ""
+        if self._subsource:
+            source = f"{source}:{self._subsource}"
+        source = source.replace("[", "\\[") if source else ""
         content = message.replace("[", "\\[")
         return meta, source, content
 
     def log(self, message: str, level: Verbosity) -> None:
         """log a message with the specified verbosity level"""
-        if level.value > self.verbosity.value:
+        if level.value > self._level.value:
             return
 
         meta, source, content = self._format_message(message, level)
 
         # print components with appropriate styling
-        self.console.print(meta, style=self.VERBOSITY_STYLES[level], end="")
-        self.console.print(" ", end="")
+        self._console.print(meta, style=self.VERBOSITY_STYLES[level], end="")
+        self._console.print(" ", end="")
 
         if source:
-            self.console.print(source, style="bright_black", end=" ")
+            self._console.print(source, style="bright_black", end=" ")
 
-        self.console.print(content)
+        self._console.print(content)
 
     # convenience methods for different log levels
     def debug(self, message: str) -> None:
@@ -125,44 +129,54 @@ class Logger:
     # verbosity control methods
     def is_quiet(self) -> bool:
         """check if logger is in quiet mode (error level)"""
-        return self.verbosity == Verbosity.ERROR
+        return self._level == Verbosity.ERROR
 
     def is_verbose(self) -> bool:
         """check if logger is in verbose mode (trace level)"""
-        return self.verbosity == Verbosity.TRACE
+        return self._level == Verbosity.TRACE
 
     def be_quiet(self) -> None:
         """set logger to quiet mode"""
-        self.verbosity = Verbosity.ERROR
+        self._level = Verbosity.ERROR
 
     def be_verbose(self) -> None:
         """set logger to verbose mode"""
-        self.verbosity = Verbosity.TRACE
+        self._level = Verbosity.TRACE
 
     def be_debug(self) -> None:
         """set logger to debug mode"""
-        self.verbosity = Verbosity.DEBUG
+        self._level = Verbosity.DEBUG
 
     def log_only_when_quieter_than(
         self, message: str, compare_verbosity: Verbosity
     ) -> None:
         """log message only if current verbosity is lower than specified level"""
-        if self.verbosity.value <= compare_verbosity.value:
+        if self._level.value <= compare_verbosity.value:
             print(message)  # using standard print for this specific case
 
     @contextmanager
-    def verbosity_at(self, level: Verbosity) -> Generator[None, None, None]:
+    def verbosity(self, level: Verbosity) -> Generator[None, None, None]:
         """temporarily change verbosity level"""
-        original_level = self.verbosity
-        self.verbosity = level
+        original_level = self._level
+        self._level = level
         try:
             yield
         finally:
-            self.verbosity = original_level
+            self._level = original_level
+
+    @contextmanager
+    def subsource(self, subsource: str) -> Generator[None, None, None]:
+        """temporarily add a subsource to the log messages"""
+        original_subsource = self._subsource
+        self._subsource = subsource
+        try:
+            yield
+        finally:
+            self._subsource = original_subsource
 
     def is_verbosity_above(self, level: Verbosity) -> bool:
         """check if current verbosity is above given level"""
-        return self.verbosity.value >= level.value
+        return self._level.value >= level.value
 
 
 def logged(
