@@ -71,9 +71,9 @@ class Logger(object):
 
         if self.backend == Backend.RICH:
             # mprint(message)
-            meta_str_escaped = meta_str.replace("[", "\[")
-            message_str_escaped = message_str.replace("[", "\[")
-            source_str_escaped = source_str.replace("[", "\[")
+            meta_str_escaped = meta_str.replace("[", "\\[")
+            message_str_escaped = message_str.replace("[", "\\[")
+            source_str_escaped = source_str.replace("[", "\\[")
 
             meta_style_rich = self.get_style_rich(message_verbosity)
             self.rich_console.print(meta_str_escaped, style=meta_style_rich, end="")
