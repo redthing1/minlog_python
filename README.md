@@ -1,6 +1,6 @@
 # minlog
 
-a minimal, flexible logging library for python.
+a neat and simple minimalistic logging library for python.
 
 ## installation
 
