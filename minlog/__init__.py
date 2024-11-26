@@ -1,27 +1,11 @@
 from enum import Enum
-import colorama
-from colorama import Fore, Back, Style
-
-IS_COMPILED = "__compiled__" in globals()
-
-
-def mprint(*args, **kwargs):
-    # nuitka has issues with rich
-    if IS_COMPILED:
-        # do standard print
-        print(*args, **kwargs)
-    else:
-        from rich import print as rprint
-
-        rprint(*args, **kwargs)
-
-
-class Backend(Enum):
-    RICH = 0
-    COLORAMA = 1
+from rich.console import Console
+from typing import Optional
 
 
 class Verbosity(Enum):
+    """defines logging verbosity levels from most severe to most detailed"""
+
     CRITICAL = 0
     ERROR = 1
     WARN = 2
@@ -30,152 +14,120 @@ class Verbosity(Enum):
     DEBUG = 5
 
 
-class Logger(object):
-    def __init__(self, verbosity: Verbosity = Verbosity.INFO, log_source: str = None):
-        # maximum verbosity of messages to print
+class Logger:
+    # mapping of verbosity levels to their short forms
+    VERBOSITY_SHORTCUTS = {
+        Verbosity.DEBUG: "dbg",
+        Verbosity.TRACE: "trc",
+        Verbosity.INFO: "inf",
+        Verbosity.WARN: "wrn",
+        Verbosity.ERROR: "err",
+        Verbosity.CRITICAL: "crt",
+    }
+
+    # rich styling for different verbosity levels
+    VERBOSITY_STYLES = {
+        Verbosity.DEBUG: "bright_black on black",
+        Verbosity.TRACE: "white on black",
+        Verbosity.INFO: "green on black",
+        Verbosity.WARN: "yellow on black",
+        Verbosity.ERROR: "red on black",
+        Verbosity.CRITICAL: "bright_red on black",
+    }
+
+    def __init__(
+        self, verbosity: Verbosity = Verbosity.INFO, log_source: Optional[str] = None
+    ):
+        """initialize logger with given verbosity and optional source tag"""
         self.verbosity = verbosity
-
-        # log source tag
         self.log_source = log_source
+        self.console = Console()
 
-        # default to rich
-        self.backend = Backend.RICH
-        # but if compiled, default to colorama
-        if IS_COMPILED:
-            self.backend = Backend.COLORAMA
-
-        if self.backend == Backend.RICH:
-            from rich.console import Console
-
-            self.rich_console = Console()
-
-        elif self.backend == Backend.COLORAMA:
-            # initialize colorama
-            colorama.init()
-
-    def logger_for(self, log_source: str):
-        # create a clone of this logger, but with a different log source
+    def logger_for(self, log_source: str) -> "Logger":
+        """create a new logger instance with the same verbosity but different source"""
         return Logger(self.verbosity, log_source=log_source)
 
-    def log(self, message: str, message_verbosity: Verbosity):
-        # if the message verbosity is within the configured maximum verbosity
-        if message_verbosity.value > self.verbosity.value:
+    def _format_message(self, message: str, level: Verbosity) -> tuple[str, str, str]:
+        """format the message components with proper escaping"""
+        # escape brackets to prevent rich interpretation
+        meta = f"[{self.VERBOSITY_SHORTCUTS[level]}]".replace("[", "\\[")
+        source = f"[{self.log_source}]".replace("[", "\\[") if self.log_source else ""
+        content = message.replace("[", "\\[")
+        return meta, source, content
+
+    def log(self, message: str, level: Verbosity) -> None:
+        """log a message with the specified verbosity level"""
+        if level.value > self.verbosity.value:
             return
 
-        # then print the message
-        meta_str = f"[{self.short_verbosity(message_verbosity)}]"
-        message_str = message
-        source_str = ""
-        if self.log_source is not None:
-            source_str = f"[{self.log_source}]"
+        meta, source, content = self._format_message(message, level)
 
-        if self.backend == Backend.RICH:
-            # mprint(message)
-            meta_str_escaped = meta_str.replace("[", "\\[")
-            message_str_escaped = message_str.replace("[", "\\[")
-            source_str_escaped = source_str.replace("[", "\\[")
+        # print components with appropriate styling
+        self.console.print(meta, style=self.VERBOSITY_STYLES[level], end="")
+        self.console.print(" ", end="")
 
-            meta_style_rich = self.get_style_rich(message_verbosity)
-            self.rich_console.print(meta_str_escaped, style=meta_style_rich, end="")
-            self.rich_console.print(" ", end="")
-            self.rich_console.print(
-                f"{source_str_escaped}", style="bright_black", end=""
-            )
-            self.rich_console.print(f" {message_str_escaped}")
-        elif self.backend == Backend.COLORAMA:
-            meta_bg = Back.BLACK
-            meta_fg = self.get_fg_color_colorama(message_verbosity)
-            source_fg = Fore.LIGHTBLACK_EX
-            message_bg = Back.RESET
-            message_fg = Fore.RESET
+        if source:
+            self.console.print(source, style="bright_black", end=" ")
 
-            meta_frm = f"{meta_bg}{meta_fg}{meta_str}{Style.RESET_ALL}"
-            source_frm = f"{source_fg}{source_str}{Style.RESET_ALL}"
-            message_frm = f"{message_bg}{message_fg}{message_str}{Style.RESET_ALL}"
+        self.console.print(content)
 
-            print(f"{meta_frm} {source_frm} {message_frm}")
-
-    def debug(self, message: str):
+    # convenience methods for different log levels
+    def debug(self, message: str) -> None:
+        """log debug message"""
         self.log(message, Verbosity.DEBUG)
 
-    def trace(self, message: str):
+    def trace(self, message: str) -> None:
+        """log trace message"""
         self.log(message, Verbosity.TRACE)
 
-    def info(self, message: str):
+    def info(self, message: str) -> None:
+        """log info message"""
         self.log(message, Verbosity.INFO)
 
-    def warn(self, message: str):
+    def warn(self, message: str) -> None:
+        """log warning message"""
         self.log(message, Verbosity.WARN)
 
-    def error(self, message: str):
+    def error(self, message: str) -> None:
+        """log error message"""
         self.log(message, Verbosity.ERROR)
 
-    def crit(self, message: str):
+    def crit(self, message: str) -> None:
+        """log critical message"""
         self.log(message, Verbosity.CRITICAL)
 
-    def force_log(self, message: str):
+    def force_log(self, message: str) -> None:
+        """force log a message at critical level"""
         self.crit(message)
 
-    def log_only_when_quieter_than(self, message: str, compare_verbosity: Verbosity):
-        if self.verbosity.value <= compare_verbosity.value:
-            mprint(message)
+    # verbosity control methods
+    def is_quiet(self) -> bool:
+        """check if logger is in quiet mode (error level)"""
+        return self.verbosity == Verbosity.ERROR
 
-    def is_quiet(self):
-        return self.verbosity.value == Verbosity.ERROR.value
+    def is_verbose(self) -> bool:
+        """check if logger is in verbose mode (trace level)"""
+        return self.verbosity == Verbosity.TRACE
 
-    def is_verbose(self):
-        return self.verbosity.value == Verbosity.TRACE.value
-
-    def be_quiet(self):
+    def be_quiet(self) -> None:
+        """set logger to quiet mode"""
         self.verbosity = Verbosity.ERROR
 
-    def be_verbose(self):
+    def be_verbose(self) -> None:
+        """set logger to verbose mode"""
         self.verbosity = Verbosity.TRACE
 
-    def be_debug(self):
+    def be_debug(self) -> None:
+        """set logger to debug mode"""
         self.verbosity = Verbosity.DEBUG
 
-    def short_verbosity(self, message_verbosity: Verbosity):
-        if message_verbosity == Verbosity.DEBUG:
-            return "dbg"
-        elif message_verbosity == Verbosity.TRACE:
-            return "trc"
-        elif message_verbosity == Verbosity.INFO:
-            return "inf"
-        elif message_verbosity == Verbosity.WARN:
-            return "wrn"
-        elif message_verbosity == Verbosity.ERROR:
-            return "err"
-        elif message_verbosity == Verbosity.CRITICAL:
-            return "crt"
-
-    def get_fg_color_colorama(self, message_verbosity: Verbosity):
-        if message_verbosity == Verbosity.DEBUG:
-            return Fore.LIGHTBLACK_EX
-        elif message_verbosity == Verbosity.TRACE:
-            return Fore.LIGHTBLACK_EX
-        elif message_verbosity == Verbosity.INFO:
-            return Fore.GREEN
-        elif message_verbosity == Verbosity.WARN:
-            return Fore.YELLOW
-        elif message_verbosity == Verbosity.ERROR:
-            return Fore.RED
-        elif message_verbosity == Verbosity.CRITICAL:
-            return Fore.RED
-
-    def get_style_rich(self, message_verbosity: Verbosity):
-        if message_verbosity == Verbosity.DEBUG:
-            return "bright_black on black"
-        elif message_verbosity == Verbosity.TRACE:
-            return "bright_black on black"
-        elif message_verbosity == Verbosity.INFO:
-            return "green on black"
-        elif message_verbosity == Verbosity.WARN:
-            return "yellow on black"
-        elif message_verbosity == Verbosity.ERROR:
-            return "red on black"
-        elif message_verbosity == Verbosity.CRITICAL:
-            return "red on black"
+    def log_only_when_quieter_than(
+        self, message: str, compare_verbosity: Verbosity
+    ) -> None:
+        """log message only if current verbosity is lower than specified level"""
+        if self.verbosity.value <= compare_verbosity.value:
+            print(message)  # using standard print for this specific case
 
 
+# create default logger instance
 logger = Logger()
