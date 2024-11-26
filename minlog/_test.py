@@ -1,5 +1,10 @@
 from . import logger, Verbosity, Backend
 
+"""
+to run the test:
+
+poetry run python -m minlog._test
+"""
 
 def log_all_levels(my_logger):
     my_logger.log("hello", Verbosity.DEBUG)
