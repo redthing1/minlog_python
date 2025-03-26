@@ -56,7 +56,7 @@ class Logger:
         self._level = verbosity
         self._source = source
         self._subsource = None
-        self._console = Console()
+        self._console = Console(stderr=True)
 
     def logger_for(self, source: str) -> "Logger":
         """create a new logger instance with the same verbosity but different source"""
@@ -180,7 +180,7 @@ class Logger:
 
 
 def logged(
-    source_or_class: Union[str, Type[T]]
+    source_or_class: Union[str, Type[T]],
 ) -> Union[Type[T], Callable[[Type[T]], Type[T]]]:
     """class decorator to add logging capability.
     can be used as @logged or @logged("custom_source")"""
